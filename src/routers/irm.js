@@ -12,6 +12,23 @@ function absoluteUrl(url, baseUrl = ARCHIVES_URL) {
     }
 }
 
+const TAG_TRANSLATIONS = {
+    "喉奥射精": "喉奥射精",
+    "ゲロ": "呕吐",
+    "ゲロ再飲": "又喝呕吐物了",
+    "ゲロなし": "没有呕吐",
+    "喉ボコ": "喉咙肿块",
+    "ゲップ": "打嗝",
+    "細シリコン": "薄硅胶",
+    "喉ローター": "喉转子",
+    "ディープスロート": "深喉咙",
+    "飲尿": "喝尿",
+    "喉奥放尿": "尿液排入喉咙深处",
+    "精子ゲロ": "精液呕吐",
+    "アナル": "肛门",
+    "スカトロ": "粪便"
+};
+
 function escapeHtml(value) {
     return String(value || "")
         .replace(/&/g, "&amp;")
@@ -205,12 +222,14 @@ export async function irm(model, baseUrl) {
             );
     
             const img = thumb.find(".thumb_link_img img").first();
-            const image = absoluteUrl(
-                img.attr("data-src") ||
+            const imageSource =
+                img.attr("data-full") ||
                 img.attr("data-original") ||
+                img.attr("data-src") ||
+                img.attr("data-lazy-src") ||
                 img.attr("src") ||
-                img.attr("data-lazy-src"), pageUrl
-            );
+                img.closest("a").attr("href");
+            const image = absoluteUrl(imageSource, pageUrl);
     
             const dateText = article
                 .find(".thumb_link_date")
@@ -236,8 +255,9 @@ export async function irm(model, baseUrl) {
                 .find("ul.d-flex.flex-wrap.gap-1.list-unstyled.mb-0.small li")
                 .map((_, tagItem) => {
                     const tag = $(tagItem).find("a").first();
+                    const originalName = tag.length ? tag.text().trim() : $(tagItem).text().trim();
                     return {
-                        name: tag.length ? tag.text().trim() : $(tagItem).text().trim(),
+                        name: TAG_TRANSLATIONS[originalName] || originalName,
                         url: tag.length ? absoluteUrl(tag.attr("href"), pageUrl) : ""
                     };
                 })
@@ -331,7 +351,7 @@ export async function irm(model, baseUrl) {
         const src = imgTag.match(/\bsrc=["']([^"']*)["']/i);
         const alt = imgTag.match(/\balt=["']([^"']*)["']/i);
         if (!src) return imgTag;
-        return `<img src="${src[1]}"${alt ? ` alt="${alt[1]}"` : ""} style="width:auto;height:auto;max-width:none;max-height:none;">`;
+        return `<img src="${src[1]}"${alt ? ` alt="${alt[1]}"` : ""}>`;
     });
 
     return rss;
