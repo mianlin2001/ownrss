@@ -140,7 +140,9 @@ export async function irm(model, baseUrl) {
             id: link,
             link,
             title,
-            description: `最上一花作品：${title}`,
+            description: image
+                ? `<p><img src="${image}" /></p>`
+                : `最上一花作品：${title}`,
             content,
             author: [{ name: "最上一花" }]
         };
