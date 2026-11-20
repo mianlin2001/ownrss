@@ -151,11 +151,41 @@ export async function irm(model, baseUrl) {
         feed.addItem(item);
     });
 
-    // Move each item's description (cover image) before its link in the RSS XML.
-    return feed.rss2()
+    // Add a normalized image filename code after each title.
+    // Example: bgny003ps.jpg -> <number>bgny-003</number>
+    let rss = feed.rss2()
         .replace(/<guid\b[^>]*>[\s\S]*?<\/guid>/g, "")
         .replace(
             /(<item>\s*<title>[\s\S]*?<\/title>\s*)(<link>[\s\S]*?<\/link>)([\s\S]*?)(<description>[\s\S]*?<\/description>)/g,
             "$1$4\n$2$3"
         );
+
+    rss = rss.replace(/<item>([\s\S]*?)<\/item>/g, (itemXml) => {
+        const imageMatch = itemXml.match(/<img\b[^>]*src=["']([^"']+)["']/i);
+        if (!imageMatch) return itemXml;
+
+        let filename = "";
+        try {
+            filename = decodeURIComponent(
+                new URL(imageMatch[1]).pathname.split("/").pop() || ""
+            );
+        } catch {
+            return itemXml;
+        }
+
+        let number = filename
+            .replace(/\.[^.]+$/, "")
+            .replace(/^pf_o1_/i, "")
+            .replace(/ps$/i, "")
+            .replace(/([a-z]+)(\d+)/i, "$1-$2");
+
+        if (!number) return itemXml;
+
+        return itemXml.replace(
+            /(<title>[\s\S]*?<\/title>)/,
+            `$1\n<number>${number}</number>`
+        );
+    });
+
+    return rss;
 }
