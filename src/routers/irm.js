@@ -44,20 +44,65 @@ export async function irm(model, baseUrl) {
     const currentRssUrl =
         `${baseUrl}?irm=${encodeURIComponent(model || "mogami_ichika")}`;
 
-    const response = await fetch(SOURCE_URL, {
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml"
+    const requestHeaders = {
+        "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml"
+    };
+
+    const pages = [SOURCE_URL];
+    const visitedPages = new Set();
+    const pageDocuments = [];
+    const maxPages = 10;
+
+    while (pages.length && visitedPages.size < maxPages) {
+        const pageUrl = pages.shift();
+        if (visitedPages.has(pageUrl)) continue;
+        visitedPages.add(pageUrl);
+
+        const response = await fetch(pageUrl, { headers: requestHeaders });
+        if (!response.ok) {
+            if (pageUrl === SOURCE_URL) {
+                throw new Error(`IRMLabo HTTP Error: ${response.status}`);
+            }
+            continue;
         }
-    });
 
-    if (!response.ok) {
-        throw new Error(`IRMLabo HTTP Error: ${response.status}`);
+        const pageHtml = await response.text();
+        const page = cheerio.load(pageHtml);
+        pageDocuments.push(page);
+
+        const paginationLinks = page(
+            "a[rel='next'], .pagination a, .pager a, .pagenavi a, " +
+            ".page-numbers, nav[aria-label*='pagination'] a, " +
+            "[class*='pagination'] a, [class*='pager'] a, " +
+            "[id*='pagination'] a, [id*='pager'] a"
+        );
+
+        paginationLinks.each((_, anchor) => {
+            const href = page(anchor).attr("href");
+            if (!href) return;
+
+            try {
+                const nextUrl = new URL(href, pageUrl);
+                const sourceUrl = new URL(SOURCE_URL);
+
+                if (
+                    nextUrl.origin !== sourceUrl.origin ||
+                    nextUrl.pathname !== sourceUrl.pathname
+                ) {
+                    return;
+                }
+
+                const normalizedUrl = nextUrl.href;
+                if (!visitedPages.has(normalizedUrl) && !pages.includes(normalizedUrl)) {
+                    pages.push(normalizedUrl);
+                }
+            } catch {
+                // Ignore malformed pagination links.
+            }
+        });
     }
-
-    const html = await response.text();
-    const $ = cheerio.load(html);
 
     const feed = new Feed({
         title: "最上一花作品更新",
@@ -74,82 +119,68 @@ export async function irm(model, baseUrl) {
 
     const seen = new Set();
 
-    $("article").each((_, element) => {
-        const article = $(element);
-
-        const actorLinks = article
-            .find(".thumb_link_person a")
-            .map((_, anchor) => $(anchor).attr("href"))
-            .get();
-
-        const isTargetActor = actorLinks.some((href) => {
-            if (!href) return false;
-
-            try {
-                return new URL(href, SOURCE_URL).pathname === ACTOR_PATH;
-            } catch {
-                return false;
-            }
+    // 入口本身就是最上一花的专属列表页，因此不再按演员链接二次过滤。
+    // 同时遍历分页页面中的所有 article，并通过 seen 去重。
+    for (const $ of pageDocuments) {
+        $("article").each((_, element) => {
+            const article = $(element);
+            const thumb = article.find(".thumb_link").first();
+            if (!thumb.length) return;
+    
+            const title = thumb
+                .find(".thumb_link_ttl")
+                .first()
+                .text()
+                .trim();
+    
+            const link = absoluteUrl(
+                thumb.children("a").first().attr("href")
+            );
+    
+            const img = thumb.find(".thumb_link_img img").first();
+            const image = absoluteUrl(
+                img.attr("data-src") ||
+                img.attr("data-original") ||
+                img.attr("src") ||
+                img.attr("data-lazy-src")
+            );
+    
+            const dateText = article
+                .find(".thumb_link_date")
+                .first()
+                .text()
+                .trim();
+    
+            const date = parseDate(dateText);
+    
+            if (!title || !link || seen.has(link)) return;
+            seen.add(link);
+    
+            const content = `
+                <div>
+                    <p>演员：最上一花</p>
+                    <p>作品：${title}</p>
+                    <p>发行日期：${dateText || "未知"}</p>
+                    ${image ? `<p><img src="${image}" alt="${title}" /></p>` : ""}
+                </div>
+            `;
+    
+            const item = {
+                id: link,
+                link,
+                title,
+                description: image
+                    ? `<p><img src="${image}" /></p>`
+                    : `最上一花作品：${title}`,
+                content,
+                author: [{ name: "最上一花" }]
+            };
+    
+            if (date) item.date = date;
+    
+            feed.addItem(item);
         });
-
-        if (!isTargetActor) return;
-
-        const thumb = article.find(".thumb_link").first();
-        if (!thumb.length) return;
-
-        const title = thumb
-            .find(".thumb_link_ttl")
-            .first()
-            .text()
-            .trim();
-
-        const link = absoluteUrl(
-            thumb.children("a").first().attr("href")
-        );
-
-        const img = thumb.find(".thumb_link_img img").first();
-        const image = absoluteUrl(
-            img.attr("data-src") ||
-            img.attr("data-original") ||
-            img.attr("src") ||
-            img.attr("data-lazy-src")
-        );
-
-        const dateText = article
-            .find(".thumb_link_date")
-            .first()
-            .text()
-            .trim();
-
-        const date = parseDate(dateText);
-
-        if (!title || !link || seen.has(link)) return;
-        seen.add(link);
-
-        const content = `
-            <div>
-                <p>演员：最上一花</p>
-                <p>作品：${title}</p>
-                <p>发行日期：${dateText || "未知"}</p>
-                ${image ? `<p><img src="${image}" alt="${title}" /></p>` : ""}
-            </div>
-        `;
-
-        const item = {
-            id: link,
-            link,
-            title,
-            description: image
-                ? `<p><img src="${image}" /></p>`
-                : `最上一花作品：${title}`,
-            content,
-            author: [{ name: "最上一花" }]
-        };
-
-        if (date) item.date = date;
-
-        feed.addItem(item);
-    });
+    }
 
     // Put the normalized image filename code at the beginning of description,
     // immediately before the cover image.
