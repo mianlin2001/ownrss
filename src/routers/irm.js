@@ -132,7 +132,6 @@ export async function irm(model, baseUrl) {
                 <p>作品：${title}</p>
                 <p>发行日期：${dateText || "未知"}</p>
                 ${image ? `<p><img src="${image}" alt="${title}" /></p>` : ""}
-                <p><a href="${link}">查看作品详情</a></p>
             </div>
         `;
 
@@ -153,8 +152,10 @@ export async function irm(model, baseUrl) {
     });
 
     // Move each item's description (cover image) before its link in the RSS XML.
-    return feed.rss2().replace(
-        /(<item>\s*<title>[\s\S]*?<\/title>\s*)(<link>[\s\S]*?<\/link>)([\s\S]*?)(<description>[\s\S]*?<\/description>)/g,
-        "$1$4\n$2$3"
-    );
+    return feed.rss2()
+        .replace(/<guid\\b[^>]*>[\\s\\S]*?<\\/guid>/g, "")
+        .replace(
+            /(<item>\s*<title>[\s\S]*?<\/title>\s*)(<link>[\s\S]*?<\/link>)([\s\S]*?)(<description>[\s\S]*?<\/description>)/g,
+            "$1$4\n$2$3"
+        );
 }
