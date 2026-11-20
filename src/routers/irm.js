@@ -70,11 +70,19 @@ export async function irm(model, baseUrl) {
             const anchor = directory(element);
             const href = anchor.attr("href") || "";
             const name = anchor.text().trim();
+            let candidateUrl;
+            try {
+                candidateUrl = new URL(href, "https://irm.avlabo.com");
+            } catch {
+                return;
+            }
+
             if (
                 normalizeName(name) === normalizeName(actorInput) &&
-                /\/archives\/[^/?#]+\.php(?:[?#].*)?$/.test(href)
+                candidateUrl.origin === "https://irm.avlabo.com" &&
+                /^\/archives\/[^/?#]+\.php$/.test(candidateUrl.pathname)
             ) {
-                matchedHref = href;
+                matchedHref = candidateUrl.href;
                 actorName = name;
                 return false;
             }
