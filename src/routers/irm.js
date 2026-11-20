@@ -229,7 +229,12 @@ export async function irm(model, baseUrl) {
                 img.attr("data-lazy-src") ||
                 img.attr("src") ||
                 img.closest("a").attr("href");
-            const image = absoluteUrl(imageSource, pageUrl);
+            let image = absoluteUrl(imageSource, pageUrl);
+            if (image) {
+                const imageUrl = new URL(image);
+                imageUrl.pathname = imageUrl.pathname.replace(/ps$/i, "pl");
+                image = imageUrl.href;
+            }
     
             const dateText = article
                 .find(".thumb_link_date")
@@ -327,7 +332,7 @@ export async function irm(model, baseUrl) {
         const number = filename
             .replace(/\.[^.]+$/, "")
             .replace(/^pf_o1_/i, "")
-            .replace(/ps$/i, "")
+            .replace(/(?:ps|pl)$/i, "")
             .replace(/([a-z]+)(\d+)/i, "$1-$2");
 
         if (!number) return itemXml;
