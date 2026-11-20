@@ -85,7 +85,7 @@ export async function wiki(model, baseUrl) {
         throw new Error(`Seesaa Wiki HTTP Error: ${response.status}`);
     }
 
-    const html = await response.text();
+    const html = new TextDecoder("euc-jp").decode(await response.arrayBuffer());
     const $ = cheerio.load(html);
 
     const actorName =
@@ -113,6 +113,7 @@ export async function wiki(model, baseUrl) {
     sections.each((_, body) => {
         const section = $(body).closest(".wiki-section-1, .wiki-section-2");
         const category = section.find("h3, h4").first().text().trim() || "作品";
+        if (/^(SNS|プロフィール)$/.test(category)) return;
 
         for (const chunk of getEntryChunks($(body).html())) {
             const $chunk = cheerio.load(chunk);
