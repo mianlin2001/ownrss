@@ -63,7 +63,7 @@ export async function irm(model, baseUrl) {
 
         const directoryHtml = await directoryResponse.text();
         const directory = cheerio.load(directoryHtml);
-        const normalizeName = value => String(value || "").replace(/[\\s　]/g, "").trim();
+        const normalizeName = value => String(value || "").replace(/[\s　]/g, "").trim();
         let matchedHref = "";
 
         directory("a[href]").each((_, element) => {
@@ -72,7 +72,7 @@ export async function irm(model, baseUrl) {
             const name = anchor.text().trim();
             if (
                 normalizeName(name) === normalizeName(actorInput) &&
-                /\\/archives\\/[^/?#]+\\.php(?:[?#].*)?$/.test(href)
+                /\/archives\/[^/?#]+\.php(?:[?#].*)?$/.test(href)
             ) {
                 matchedHref = href;
                 actorName = name;
@@ -85,7 +85,7 @@ export async function irm(model, baseUrl) {
         }
 
         sourceUrl = new URL(matchedHref, "https://irm.avlabo.com").href;
-        actorSlug = sourceUrl.split("/").pop().replace(/\\.php(?:[?#].*)?$/, "");
+        actorSlug = sourceUrl.split("/").pop().replace(/\.php(?:[?#].*)?$/, "");
     }
 
     const currentRssUrl =
