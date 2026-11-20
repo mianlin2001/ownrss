@@ -47,6 +47,42 @@ function getImage($card) {
     return absoluteUrl(src);
 }
 
+// 商品番号と記事IDは別物。記事ID形式（例: 16_073116）は番号として扱わない。
+function extractProductNumber(value = "") {
+    const text = cleanText(value);
+    const match = text.match(/\b[A-Z]{2,6}-\d{2,5}\b/i);
+    return match ? match[0].toUpperCase() : "";
+}
+
+async function getProductNumberFromDetail(url) {
+    if (!url) return "";
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (compatible; WorkerRSS/1.0)",
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "ja,en-US;q=0.9"
+            }
+        });
+
+        if (!response.ok) return "";
+
+        const html = await response.text();
+        const $detail = cheerio.load(html);
+
+        // 先看常见的番号/商品コード字段，再扫描详情正文。
+        const labeled = $detail(
+            '[class*="code"], [class*="number"], [class*="jan"], [id*="code"], [id*="number"]'
+        ).map((_, el) => $detail(el).text()).get().join(" ");
+
+        return extractProductNumber(labeled) ||
+            extractProductNumber($detail("body").text());
+    } catch {
+        return "";
+    }
+}
+
 function escapeHtml(value = "") {
     return String(value).replace(/[&<>"']/g, char => ({
         "&": "&amp;",
@@ -145,13 +181,20 @@ export async function irm(input, baseUrl) {
 
         const pubDate = parseDate(dateText);
 
-        const workId =
-            card.attr("id") || link;
+        // 卡片上有标准番号时直接使用；下划线形式通常是站内文章ID，
+        // 需要进入详情页查真正的商品番号。
+        const articleId = card.attr("id") || link;
+        let productNumber = extractProductNumber(card.text());
+
+        if (!productNumber) {
+            productNumber = await getProductNumberFromDetail(link);
+        }
 
         if (!title || !link) return;
 
         const content = `
             <div>
+                <p>作品番号：${escapeHtml(productNumber || "未识别")}</p>
                 ${image
                     ? `<p><img src="${escapeHtml(image)}"
                          alt="${escapeHtml(title)}"
@@ -159,14 +202,14 @@ export async function irm(input, baseUrl) {
                     : ""}
                 <p>演员：${escapeHtml(actorName)}</p>
                 <p>发行日期：${escapeHtml(dateText || "未知")}</p>
-                <p>作品 ID：${escapeHtml(workId)}</p>
+                <p>网站文章 ID：${escapeHtml(articleId)}</p>
                 <p><a href="${escapeHtml(link)}">查看作品详情</a></p>
             </div>
         `;
 
         feed.addItem({
             id: link,
-            title,
+            title: productNumber ? `[${productNumber}] ${title}` : title,
             link,
             date: pubDate || new Date(),
             author: [
