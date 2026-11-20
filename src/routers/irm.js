@@ -232,7 +232,7 @@ export async function irm(model, baseUrl) {
             let image = absoluteUrl(imageSource, pageUrl);
             if (image) {
                 const imageUrl = new URL(image);
-                imageUrl.pathname = imageUrl.pathname.replace(/ps(?=\\.[^/.]+$)/i, "pl");
+                imageUrl.pathname = imageUrl.pathname.replace(/ps(?=\.[^/.]+$)/i, "pl");
                 image = imageUrl.href;
             }
     
