@@ -1,4 +1,5 @@
 import { irm as irmRouter } from "./routers/irm.js";
+import { wiki as wikiRouter } from "./routers/wiki.js";
 
 // 统一的 CORS 响应头配置
 const corsHeaders = {
@@ -69,7 +70,9 @@ export default {
             try {
                 const module = mode === "irm"
                     ? { irm: irmRouter }
-                    : await import(`./routers/${mode}.js`)
+                    : mode === "wiki"
+                        ? { wiki: wikiRouter }
+                        : await import(`./routers/${mode}.js`)
 
                 const func = module[mode]
 
