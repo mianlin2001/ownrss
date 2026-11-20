@@ -327,9 +327,9 @@ export async function irm(model, baseUrl) {
     });
 
     // Remove any fixed image dimensions and lazy-loading attributes from RSS HTML.
-    rss = rss.replace(/<img\\b[^>]*>/gi, (imgTag) => {
-        const src = imgTag.match(/\\bsrc=["']([^"']*)["']/i);
-        const alt = imgTag.match(/\\balt=["']([^"']*)["']/i);
+    rss = rss.replace(/<img\b[^>]*>/gi, (imgTag) => {
+        const src = imgTag.match(/\bsrc=["']([^"']*)["']/i);
+        const alt = imgTag.match(/\balt=["']([^"']*)["']/i);
         if (!src) return imgTag;
         return `<img src="${src[1]}"${alt ? ` alt="${alt[1]}"` : ""} style="width:auto;height:auto;max-width:none;max-height:none;">`;
     });
