@@ -38,20 +38,58 @@ function parseDate(value) {
 }
 
 export async function irm(model, baseUrl) {
-    const actorSlug = String(model || "mogami_ichika").trim();
-    if (!/^[a-zA-Z0-9_-]+$/.test(actorSlug)) {
-        throw new Error("演员参数格式不正确，请使用 archives 页面中的文件名（不含 .php）");
-    }
-
-    const sourceUrl = new URL(`${actorSlug}.php`, ARCHIVES_URL).href;
-    const currentRssUrl =
-        `${baseUrl}?irm=${encodeURIComponent(actorSlug)}`;
+    const actorInput = String(model || "mogami_ichika").trim();
+    if (!actorInput) throw new Error("请提供演员名称或页面文件名");
 
     const requestHeaders = {
         "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml"
     };
+
+    let actorSlug = actorInput;
+    let actorName = actorInput;
+    let sourceUrl;
+
+    if (/^[a-zA-Z0-9_-]+$/.test(actorInput)) {
+        sourceUrl = new URL(`${actorSlug}.php`, ARCHIVES_URL).href;
+    } else {
+        const directoryResponse = await fetch("https://irm.avlabo.com/actress/", {
+            headers: requestHeaders
+        });
+        if (!directoryResponse.ok) {
+            throw new Error(`无法读取 IRMLabo 女演员目录：HTTP ${directoryResponse.status}`);
+        }
+
+        const directoryHtml = await directoryResponse.text();
+        const directory = cheerio.load(directoryHtml);
+        const normalizeName = value => String(value || "").replace(/[\\s　]/g, "").trim();
+        let matchedHref = "";
+
+        directory("a[href]").each((_, element) => {
+            const anchor = directory(element);
+            const href = anchor.attr("href") || "";
+            const name = anchor.text().trim();
+            if (
+                normalizeName(name) === normalizeName(actorInput) &&
+                /\\/archives\\/[^/?#]+\\.php(?:[?#].*)?$/.test(href)
+            ) {
+                matchedHref = href;
+                actorName = name;
+                return false;
+            }
+        });
+
+        if (!matchedHref) {
+            throw new Error(`在 IRMLabo 女演员目录中找不到「${actorInput}」`);
+        }
+
+        sourceUrl = new URL(matchedHref, "https://irm.avlabo.com").href;
+        actorSlug = sourceUrl.split("/").pop().replace(/\\.php(?:[?#].*)?$/, "");
+    }
+
+    const currentRssUrl =
+        `${baseUrl}?irm=${encodeURIComponent(actorInput)}`;
 
     const pages = [sourceUrl];
     const visitedPages = new Set();
@@ -107,13 +145,12 @@ export async function irm(model, baseUrl) {
         });
     }
 
-    const actorName = pageDocuments.length
-        ? (
+    if (actorName === actorInput && pageDocuments.length) {
+        actorName =
             pageDocuments[0].page("h1").first().text().trim() ||
             pageDocuments[0].page(".page-title, .archive-title").first().text().trim() ||
-            actorSlug
-        )
-        : actorSlug;
+            actorSlug;
+    }
 
     const feed = new Feed({
         title: `${actorName}作品更新`,
