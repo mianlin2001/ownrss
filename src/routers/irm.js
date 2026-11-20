@@ -151,8 +151,8 @@ export async function irm(model, baseUrl) {
         feed.addItem(item);
     });
 
-    // Add a normalized image filename code after each title.
-    // Example: bgny003ps.jpg -> <number>bgny-003</number>
+    // Put the normalized image filename code at the beginning of description,
+    // immediately before the cover image.
     let rss = feed.rss2()
         .replace(/<guid\b[^>]*>[\s\S]*?<\/guid>/g, "")
         .replace(
@@ -173,7 +173,7 @@ export async function irm(model, baseUrl) {
             return itemXml;
         }
 
-        let number = filename
+        const number = filename
             .replace(/\.[^.]+$/, "")
             .replace(/^pf_o1_/i, "")
             .replace(/ps$/i, "")
@@ -182,8 +182,8 @@ export async function irm(model, baseUrl) {
         if (!number) return itemXml;
 
         return itemXml.replace(
-            /(<title>[\s\S]*?<\/title>)/,
-            `$1\n<number>${number}</number>`
+            /(<description>\s*<!\[CDATA\[)/,
+            `$1<number>${number}</number>\n`
         );
     });
 
