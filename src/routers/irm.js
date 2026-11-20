@@ -152,30 +152,41 @@ export async function irm(model, baseUrl) {
                 .trim();
     
             const date = parseDate(dateText);
+
+            // IRMLabo marks the numeric star rating with <span class="text-danger">.
+            const ratingText = article.find("span.text-danger").first().text().trim();
+            const ratingMatch = ratingText.match(/\d+(?:\.\d+)?/);
+            const rating = ratingMatch ? Number(ratingMatch[0]) : null;
     
             if (!title || !link || seen.has(link)) return;
             seen.add(link);
     
+            const ratingHtml = rating !== null
+                ? `<p>⭐ 评分：${rating}</p>`
+                : "";
+
             const content = `
                 <div>
                     <p>演员：最上一花</p>
                     <p>作品：${title}</p>
+                    ${ratingHtml}
                     <p>发行日期：${dateText || "未知"}</p>
                     ${image ? `<p><img src="${image}" alt="${title}" /></p>` : ""}
                 </div>
             `;
-    
+
             const item = {
                 id: link,
                 link,
                 title,
-                description: image
-                    ? `<p><img src="${image}" /></p>`
-                    : `最上一花作品：${title}`,
+                description: [
+                    ratingHtml,
+                    image ? `<p><img src="${image}" /></p>` : `最上一花作品：${title}`
+                ].join("\n"),
                 content,
                 author: [{ name: "最上一花" }]
             };
-    
+
             if (date) item.date = date;
     
             feed.addItem(item);
