@@ -233,11 +233,14 @@ export async function irm(model, baseUrl) {
                 : "";
 
             const tags = article
-                .find("a.badge.bg-secondary.color_nodosha")
-                .map((_, tag) => ({
-                    name: $(tag).text().trim(),
-                    url: absoluteUrl($(tag).attr("href"), pageUrl)
-                }))
+                .find("ul.d-flex.flex-wrap.gap-1.list-unstyled.mb-0.small li")
+                .map((_, tagItem) => {
+                    const tag = $(tagItem).find("a").first();
+                    return {
+                        name: tag.length ? tag.text().trim() : $(tagItem).text().trim(),
+                        url: tag.length ? absoluteUrl(tag.attr("href"), pageUrl) : ""
+                    };
+                })
                 .get()
                 .filter(tag => tag.name);
 
@@ -321,6 +324,14 @@ export async function irm(model, baseUrl) {
         );
 
         return updatedItem;
+    });
+
+    // Remove any fixed image dimensions and lazy-loading attributes from RSS HTML.
+    rss = rss.replace(/<img\\b[^>]*>/gi, (imgTag) => {
+        const src = imgTag.match(/\\bsrc=["']([^"']*)["']/i);
+        const alt = imgTag.match(/\\balt=["']([^"']*)["']/i);
+        if (!src) return imgTag;
+        return `<img src="${src[1]}"${alt ? ` alt="${alt[1]}"` : ""} style="width:auto;height:auto;max-width:none;max-height:none;">`;
     });
 
     return rss;
