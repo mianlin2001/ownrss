@@ -12,6 +12,15 @@ function absoluteUrl(url, baseUrl = ARCHIVES_URL) {
     }
 }
 
+function escapeHtml(value) {
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 function parseDate(value) {
     const match = String(value || "").match(
         /(\d{4})[./年-](\d{1,2})[./月-](\d{1,2})/
@@ -223,13 +232,31 @@ export async function irm(model, baseUrl) {
                 ? `<p>⭐ 评分：${rating}</p>`
                 : "";
 
+            const tags = article
+                .find("a.badge.bg-secondary.color_nodosha")
+                .map((_, tag) => ({
+                    name: $(tag).text().trim(),
+                    url: absoluteUrl($(tag).attr("href"), pageUrl)
+                }))
+                .get()
+                .filter(tag => tag.name);
+
+            const tagsHtml = tags.length
+                ? `<p>标签：${tags.map(tag =>
+                    tag.url
+                        ? `<a href="${escapeHtml(tag.url)}">${escapeHtml(tag.name)}</a>`
+                        : escapeHtml(tag.name)
+                ).join("、")}</p>`
+                : "";
+
             const content = `
                 <div>
                     <p>演员：${actorName}</p>
                     <p>作品：${title}</p>
                     ${ratingHtml}
+                    ${tagsHtml}
                     <p>发行日期：${dateText || "未知"}</p>
-                    ${image ? `<p><img src="${image}" alt="${title}" /></p>` : ""}
+                    ${image ? `<p><img src="${image}" alt="${escapeHtml(title)}" style="width:auto;height:auto;max-width:none;max-height:none;" /></p>` : ""}
                 </div>
             `;
 
@@ -239,7 +266,8 @@ export async function irm(model, baseUrl) {
                 title,
                 description: [
                     ratingHtml,
-                    image ? `<p><img src="${image}" /></p>` : `${actorName}作品：${title}`
+                    tagsHtml,
+                    image ? `<p><img src="${image}" alt="${escapeHtml(title)}" style="width:auto;height:auto;max-width:none;max-height:none;" /></p>` : `${actorName}作品：${title}`
                 ].join("\n"),
                 content,
                 author: [{ name: actorName }]
