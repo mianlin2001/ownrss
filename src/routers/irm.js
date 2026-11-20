@@ -73,7 +73,7 @@ export async function irm(model, baseUrl) {
 
         const pageHtml = await response.text();
         const page = cheerio.load(pageHtml);
-        pageDocuments.push(page);
+        pageDocuments.push({ page, url: pageUrl });
 
         const paginationLinks = page(
             "a[rel='next'], .pagination a, .pager a, .pagenavi a, " +
@@ -109,8 +109,8 @@ export async function irm(model, baseUrl) {
 
     const actorName = pageDocuments.length
         ? (
-            pageDocuments[0]("h1").first().text().trim() ||
-            pageDocuments[0](".page-title, .archive-title").first().text().trim() ||
+            pageDocuments[0].page("h1").first().text().trim() ||
+            pageDocuments[0].page(".page-title, .archive-title").first().text().trim() ||
             actorSlug
         )
         : actorSlug;
@@ -130,9 +130,11 @@ export async function irm(model, baseUrl) {
 
     const seen = new Set();
 
-    // 入口本身就是最上一花的专属列表页，因此不再按演员链接二次过滤。
+    // 入口本身就是指定演员的专属列表页，因此不再按演员链接二次过滤。
     // 同时遍历分页页面中的所有 article，并通过 seen 去重。
-    for (const $ of pageDocuments) {
+    for (const pageDocument of pageDocuments) {
+        const $ = pageDocument.page;
+        const pageUrl = pageDocument.url;
         $("article").each((_, element) => {
             const article = $(element);
             const thumb = article.find(".thumb_link").first();
