@@ -137,9 +137,10 @@ export async function wiki(model, baseUrl) {
             if (imageAnchor.length) {
                 const imageHref = imageAnchor.attr("href") || "";
                 const imageSrc = imageAnchor.find("img").attr("src") || "";
-                const candidate = /(?:^|\/)[^/]*_files\//i.test(imageHref)
-                    ? imageSrc
-                    : imageHref || imageSrc;
+                const isLocalSavedFile =
+                    /(?:^|\\/)[^/]*_files\\//i.test(imageHref) ||
+                    /(?:^|\\/)[^/]*_files\\//i.test(imageSrc);
+                const candidate = isLocalSavedFile ? "" : imageHref || imageSrc;
                 image = absoluteUrl(candidate, pageUrl.href);
             }
 
