@@ -1,15 +1,12 @@
 import * as cheerio from "cheerio";
 import { Feed } from "feed";
 
-const SOURCE_URL =
-    "https://irm.avlabo.com/archives/mogami_ichika.php";
+const ARCHIVES_URL = "https://irm.avlabo.com/archives/";
 
-const ACTOR_PATH = "/archives/mogami_ichika.php";
-
-function absoluteUrl(url) {
+function absoluteUrl(url, baseUrl = ARCHIVES_URL) {
     if (!url) return "";
     try {
-        return new URL(url, SOURCE_URL).href;
+        return new URL(url, baseUrl).href;
     } catch {
         return "";
     }
@@ -41,8 +38,14 @@ function parseDate(value) {
 }
 
 export async function irm(model, baseUrl) {
+    const actorSlug = String(model || "mogami_ichika").trim();
+    if (!/^[a-zA-Z0-9_-]+$/.test(actorSlug)) {
+        throw new Error("演员参数格式不正确，请使用 archives 页面中的文件名（不含 .php）");
+    }
+
+    const sourceUrl = new URL(`${actorSlug}.php`, ARCHIVES_URL).href;
     const currentRssUrl =
-        `${baseUrl}?irm=${encodeURIComponent(model || "mogami_ichika")}`;
+        `${baseUrl}?irm=${encodeURIComponent(actorSlug)}`;
 
     const requestHeaders = {
         "User-Agent":
@@ -50,7 +53,7 @@ export async function irm(model, baseUrl) {
         "Accept": "text/html,application/xhtml+xml"
     };
 
-    const pages = [SOURCE_URL];
+    const pages = [sourceUrl];
     const visitedPages = new Set();
     const pageDocuments = [];
     const maxPages = 10;
@@ -62,7 +65,7 @@ export async function irm(model, baseUrl) {
 
         const response = await fetch(pageUrl, { headers: requestHeaders });
         if (!response.ok) {
-            if (pageUrl === SOURCE_URL) {
+            if (pageUrl === sourceUrl) {
                 throw new Error(`IRMLabo HTTP Error: ${response.status}`);
             }
             continue;
@@ -85,11 +88,11 @@ export async function irm(model, baseUrl) {
 
             try {
                 const nextUrl = new URL(href, pageUrl);
-                const sourceUrl = new URL(SOURCE_URL);
+                const actorPageUrl = new URL(sourceUrl);
 
                 if (
-                    nextUrl.origin !== sourceUrl.origin ||
-                    nextUrl.pathname !== sourceUrl.pathname
+                    nextUrl.origin !== actorPageUrl.origin ||
+                    nextUrl.pathname !== actorPageUrl.pathname
                 ) {
                     return;
                 }
@@ -104,11 +107,19 @@ export async function irm(model, baseUrl) {
         });
     }
 
+    const actorName = pageDocuments.length
+        ? (
+            pageDocuments[0]("h1").first().text().trim() ||
+            pageDocuments[0](".page-title, .archive-title").first().text().trim() ||
+            actorSlug
+        )
+        : actorSlug;
+
     const feed = new Feed({
-        title: "最上一花作品更新",
-        description: "IRMLabo - 最上一花作品列表",
-        id: SOURCE_URL,
-        link: SOURCE_URL,
+        title: `${actorName}作品更新`,
+        description: `IRMLabo - ${actorName}作品列表`,
+        id: sourceUrl,
+        link: sourceUrl,
         language: "ja",
         favicon: "https://irm.avlabo.com/favicon.ico",
         feedLinks: {
@@ -134,7 +145,7 @@ export async function irm(model, baseUrl) {
                 .trim();
     
             const link = absoluteUrl(
-                thumb.children("a").first().attr("href")
+                thumb.children("a").first().attr("href"), pageUrl
             );
     
             const img = thumb.find(".thumb_link_img img").first();
@@ -142,7 +153,7 @@ export async function irm(model, baseUrl) {
                 img.attr("data-src") ||
                 img.attr("data-original") ||
                 img.attr("src") ||
-                img.attr("data-lazy-src")
+                img.attr("data-lazy-src"), pageUrl
             );
     
             const dateText = article
@@ -167,7 +178,7 @@ export async function irm(model, baseUrl) {
 
             const content = `
                 <div>
-                    <p>演员：最上一花</p>
+                    <p>演员：${actorName}</p>
                     <p>作品：${title}</p>
                     ${ratingHtml}
                     <p>发行日期：${dateText || "未知"}</p>
@@ -181,10 +192,10 @@ export async function irm(model, baseUrl) {
                 title,
                 description: [
                     ratingHtml,
-                    image ? `<p><img src="${image}" /></p>` : `最上一花作品：${title}`
+                    image ? `<p><img src="${image}" /></p>` : `${actorName}作品：${title}`
                 ].join("\n"),
                 content,
-                author: [{ name: "最上一花" }]
+                author: [{ name: actorName }]
             };
 
             if (date) item.date = date;
