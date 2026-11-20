@@ -1,3 +1,5 @@
+import { irm as irmRouter } from "./routers/irm.js";
+
 // 统一的 CORS 响应头配置
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -65,7 +67,9 @@ export default {
 
         if (mode) {
             try {
-                const module = await import(`./routers/${mode}.js`)
+                const module = mode === "irm"
+                    ? { irm: irmRouter }
+                    : await import(`./routers/${mode}.js`)
 
                 const func = module[mode]
 
