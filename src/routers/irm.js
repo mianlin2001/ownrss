@@ -154,7 +154,7 @@ export async function irm(model, baseUrl) {
 
     // Move each item's description (cover image) before its link in the RSS XML.
     return feed.rss2().replace(
-        /(<item>\\s*<title>[\\s\\S]*?<\\/title>\\s*)(<link>[\\s\\S]*?<\\/link>)([\\s\\S]*?)(<description>[\\s\\S]*?<\\/description>)/g,
-        "$1$4\\n$2$3"
+        /(<item>\s*<title>[\s\S]*?<\/title>\s*)(<link>[\s\S]*?<\/link>)([\s\S]*?)(<description>[\s\S]*?<\/description>)/g,
+        "$1$4\n$2$3"
     );
 }
