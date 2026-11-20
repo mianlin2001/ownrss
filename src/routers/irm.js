@@ -181,10 +181,18 @@ export async function irm(model, baseUrl) {
 
         if (!number) return itemXml;
 
-        return itemXml.replace(
+        let updatedItem = itemXml.replace(
             /(<description>\s*<!\[CDATA\[)/,
             `$1<number>${number}</number>\n`
         );
+
+        // Also place the same number before the actor paragraph in content:encoded.
+        updatedItem = updatedItem.replace(
+            /(<content:encoded>\s*<!\[CDATA\[\s*<div>\s*)<p>演员：/,
+            `$1<number>${number}</number>\n<p>演员：`
+        );
+
+        return updatedItem;
     });
 
     return rss;
